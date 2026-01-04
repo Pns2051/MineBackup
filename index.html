@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MineBackup Controller</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0b1121; color: #e2e8f0; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+    <div class="max-w-5xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <header class="flex items-center justify-between bg-slate-900/50 p-6 rounded-2xl border border-slate-800 backdrop-blur-sm">
+            <div class="flex items-center gap-4">
+                <div class="bg-gradient-to-br from-indigo-500 to-purple-600 w-12 h-12 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                    <i data-lucide="cloud-lightning" class="text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-white tracking-tight">MineBackup <span class="text-indigo-400">Cloud</span></h1>
+                    <p class="text-xs text-slate-400 font-medium uppercase tracking-wider flex items-center gap-2">
+                        <span id="uptimeBadge" class="w-2 h-2 rounded-full bg-green-500"></span>
+                        Render Optimized
+                    </p>
+                </div>
+            </div>
+            <div class="text-right hidden md:block">
+                <div class="text-sm text-slate-400">Next Backup</div>
+                <div id="nextBackupDisplay" class="text-lg font-bold text-white mono">Calculating...</div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Status Card -->
+            <div class="lg:col-span-2 bg-slate-900 rounded-2xl border border-slate-800 p-6 relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-10">
+                    <i data-lucide="activity" width="100" height="100"></i>
+                </div>
+                
+                <h2 class="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+                    <i data-lucide="zap" class="text-yellow-400" size="18"></i> Live Status
+                </h2>
+
+                <div class="flex flex-col items-center justify-center py-8">
+                    <div id="statusIndicator" class="w-24 h-24 rounded-full bg-slate-800 border-4 border-slate-700 flex items-center justify-center mb-4 transition-all duration-500 relative">
+                        <i id="statusIcon" data-lucide="check" size="40" class="text-slate-500"></i>
+                        <div id="pulseRing" class="absolute inset-0 rounded-full animate-ping opacity-0 bg-indigo-500"></div>
+                    </div>
+                    <h3 id="statusText" class="text-2xl font-bold text-white mb-1">IDLE</h3>
+                    <p id="subStatusText" class="text-slate-400 text-sm">Waiting for schedule...</p>
+                    <div id="fileCounter" class="hidden mt-2 text-xs font-mono text-indigo-300 bg-indigo-900/30 px-2 py-1 rounded">Files Processed: 0</div>
+                </div>
+
+                <div class="mt-6 grid grid-cols-2 gap-4">
+                    <button id="triggerBtn" onclick="triggerBackup()" class="bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-xl font-medium transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-indigo-900/20">
+                        <i data-lucide="play-circle"></i> Run Backup Now
+                    </button>
+                    <div class="bg-slate-950 rounded-xl p-3 flex flex-col justify-center px-4 border border-slate-800">
+                        <span class="text-xs text-slate-500 uppercase">Last Successful Run</span>
+                        <span id="lastBackupDisplay" class="text-white font-medium truncate">Never</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configuration Summary -->
+            <div class="bg-slate-900 rounded-2xl border border-slate-800 p-6">
+                <h2 class="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+                    <i data-lucide="settings" class="text-slate-400" size="18"></i> Config
+                </h2>
+                <div class="space-y-4">
+                    <div>
+                        <div class="text-xs text-slate-500 uppercase mb-1">SFTP Host</div>
+                        <div id="confHost" class="text-sm text-slate-200 mono bg-slate-950 p-2 rounded border border-slate-800">...</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-500 uppercase mb-1">Target Folders</div>
+                        <div id="confFolders" class="text-sm text-slate-200 mono bg-slate-950 p-2 rounded border border-slate-800 h-24 overflow-y-auto custom-scrollbar">...</div>
+                    </div>
+                    <div class="flex justify-between items-center pt-2 border-t border-slate-800">
+                        <span class="text-sm text-slate-400">Interval</span>
+                        <span id="confInterval" class="text-sm font-bold text-indigo-400">-- mins</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs -->
+        <div class="bg-black/40 rounded-2xl border border-slate-800 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                    <i data-lucide="terminal" class="text-emerald-400" size="18"></i> System Logs
+                </h2>
+                <span class="text-xs text-slate-500 bg-slate-900 px-2 py-1 rounded">Auto-refreshing</span>
+            </div>
+            <div id="logContainer" class="h-64 overflow-y-auto font-mono text-xs md:text-sm space-y-1 p-4 bg-slate-950 rounded-xl border border-slate-800 shadow-inner">
+                <!-- Logs injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+        let isBackingUp = false;
+
+        async function fetchStats() {
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+                updateUI(data);
+            } catch (e) {}
+        }
+
+        async function fetchLogs() {
+            try {
+                const res = await fetch('/api/logs');
+                const logs = await res.json();
+                renderLogs(logs);
+            } catch (e) {}
+        }
+
+        async function triggerBackup() {
+            if(isBackingUp) return;
+            const btn = document.getElementById('triggerBtn');
+            btn.innerHTML = '<i class="animate-spin" data-lucide="loader-2"></i> Initializing Stream...';
+            lucide.createIcons();
+            try { await fetch('/api/trigger', { method: 'POST' }); } catch (e) { alert("Error"); }
+        }
+
+        function updateUI(data) {
+            const statusEl = document.getElementById('statusText');
+            const subStatusEl = document.getElementById('subStatusText');
+            const indicator = document.getElementById('statusIndicator');
+            const icon = document.getElementById('statusIcon');
+            const btn = document.getElementById('triggerBtn');
+            const fileCounter = document.getElementById('fileCounter');
+
+            isBackingUp = data.status !== 'IDLE';
+
+            if (data.status === 'IDLE') {
+                statusEl.innerText = 'SYSTEM READY';
+                statusEl.className = 'text-2xl font-bold text-emerald-400 mb-1';
+                subStatusEl.innerText = 'Next run scheduled.';
+                indicator.className = 'w-24 h-24 rounded-full bg-emerald-900/20 border-4 border-emerald-500/50 flex items-center justify-center mb-4 transition-all duration-500 relative';
+                icon.className = 'text-emerald-500';
+                icon.setAttribute('data-lucide', 'check');
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="play-circle"></i> Run Backup Now';
+                btn.className = 'bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-xl font-medium transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-indigo-900/20 cursor-pointer';
+                fileCounter.classList.add('hidden');
+            } else {
+                statusEl.innerText = data.status;
+                statusEl.className = 'text-2xl font-bold text-yellow-400 mb-1 animate-pulse';
+                subStatusEl.innerText = data.currentActivity ? 'Streaming: ' + data.currentActivity : 'Processing...';
+                indicator.className = 'w-24 h-24 rounded-full bg-yellow-900/20 border-4 border-yellow-500/50 flex items-center justify-center mb-4 transition-all duration-500 relative';
+                icon.className = 'text-yellow-500 animate-spin';
+                icon.setAttribute('data-lucide', 'loader-2');
+                btn.disabled = true;
+                btn.innerHTML = 'Backup in Progress...';
+                btn.className = 'bg-slate-700 text-slate-400 p-3 rounded-xl font-medium flex items-center justify-center gap-2 cursor-not-allowed';
+                
+                fileCounter.innerText = `Files Processed: ${data.fileCount || 0}`;
+                fileCounter.classList.remove('hidden');
+            }
+
+            document.getElementById('confHost').innerText = data.configSummary.host;
+            document.getElementById('confFolders').innerText = data.configSummary.folders.join(', ');
+            document.getElementById('confInterval').innerText = data.configSummary.interval + ' mins';
+            
+            if (data.lastBackup) document.getElementById('lastBackupDisplay').innerText = new Date(data.lastBackup).toLocaleString();
+            if (data.nextBackup) {
+                const date = new Date(data.nextBackup);
+                const now = new Date();
+                const diff = Math.floor((date - now) / 60000);
+                document.getElementById('nextBackupDisplay').innerText = diff > 0 ? `In ${diff} mins` : 'Due Now';
+            }
+            lucide.createIcons();
+        }
+
+        function renderLogs(logs) {
+            const container = document.getElementById('logContainer');
+            container.innerHTML = logs.map(l => {
+                let color = 'text-slate-300';
+                if(l.type === 'ERROR') color = 'text-red-400';
+                if(l.type === 'SUCCESS') color = 'text-green-400';
+                if(l.type === 'WARNING') color = 'text-orange-400';
+                return `<div class="border-b border-slate-800/50 pb-1 mb-1 font-mono text-xs flex gap-3">
+                    <span class="text-slate-600 shrink-0">${l.time}</span>
+                    <span class="${color}">${l.message}</span>
+                </div>`
+            }).join('');
+        }
+
+        setInterval(fetchStats, 2000);
+        setInterval(fetchLogs, 3000);
+        fetchStats();
+        fetchLogs();
+    </script>
+</body>
+</html>
