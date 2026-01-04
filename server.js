@@ -1,10 +1,11 @@
 /**
- * MINECRAFT BACKUP SYSTEM v2.1 (Render Optimized)
+ * MINECRAFT BACKUP SYSTEM v2.1.1 (Render Optimized)
  * 
  * Features:
  * - Zero-Disk Architecture: Streams directly from SFTP -> ZIP -> Google Drive.
  * - Memory Efficient: Processes files sequentially to fit in Free Tier RAM (512MB).
  * - Self-Healing: Auto-reconnects SFTP on drop.
+ * - Flexible Deployment: Supports index.html in 'public/' OR root directory.
  */
 
 require('dotenv').config();
@@ -16,6 +17,7 @@ const cron = require('node-cron');
 const cors = require('cors');
 const { PassThrough } = require('stream');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -60,12 +62,45 @@ const addLog = (type, message) => {
 app.use(cors());
 app.use(express.json());
 
-// Explicitly serve static files from absolute path
-app.use(express.static(path.join(__dirname, 'public')));
+// 1. Try to serve 'public' folder if it exists (Standard Structure)
+const publicDir = path.join(__dirname, 'public');
+if (fs.existsSync(publicDir)) {
+    app.use(express.static(publicDir));
+}
 
-// Fallback route to ensure index.html is served for root
+// 2. Main Route Handler with Fallback Logic
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  const publicIndex = path.join(__dirname, 'public', 'index.html');
+  const rootIndex = path.join(__dirname, 'index.html');
+  
+  // Priority A: Check public/index.html
+  if (fs.existsSync(publicIndex)) {
+    return res.sendFile(publicIndex);
+  }
+  
+  // Priority B: Check root index.html (Fix for flat uploads)
+  if (fs.existsSync(rootIndex)) {
+    return res.sendFile(rootIndex);
+  }
+
+  // Error Page if neither exists
+  res.status(404).send(`
+    <div style="font-family: sans-serif; text-align: center; padding: 40px; background: #1a1a1a; color: #ff6b6b; height: 100vh;">
+      <h1>⚠️ Deployment Error: Dashboard Missing</h1>
+      <p>The server is running, but it cannot find <code>index.html</code>.</p>
+      <div style="background: #000; padding: 20px; border-radius: 8px; display: inline-block; text-align: left; margin-top: 20px;">
+        <p style="color: #fff; margin: 0;">Checked locations:</p>
+        <ul style="color: #aaa; font-family: monospace; list-style: none; padding: 0; margin-top: 10px;">
+            <li>1. ${publicIndex}</li>
+            <li>2. ${rootIndex}</li>
+        </ul>
+      </div>
+      <p style="margin-top: 30px; color: #ccc;">
+        Please ensure <code>index.html</code> exists in your GitHub repository<br>
+        (either in the root folder or inside a 'public' folder).
+      </p>
+    </div>
+  `);
 });
 
 // --- API ROUTES ---
@@ -242,4 +277,5 @@ setInterval(() => {
 app.listen(PORT, () => {
   addLog('INFO', `System Online on Port ${PORT}`);
   addLog('INFO', 'Optimization Mode: Render Free Tier (Zero-Disk Streaming)');
+  addLog('INFO', 'Note: Serving dashboard from root or public folder.');
 });
