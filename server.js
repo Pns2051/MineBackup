@@ -15,6 +15,7 @@ const { google } = require('googleapis');
 const cron = require('node-cron');
 const cors = require('cors');
 const { PassThrough } = require('stream');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -58,7 +59,14 @@ const addLog = (type, message) => {
 // --- MIDDLEWARE ---
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+
+// Explicitly serve static files from absolute path
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Fallback route to ensure index.html is served for root
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // --- API ROUTES ---
 app.get('/api/stats', (req, res) => {

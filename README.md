@@ -36,3 +36,8 @@ Render Free Tier spins down after 15 minutes of inactivity. To keep your backups
 *   **Zero-Disk Streaming**: Files go SFTP -> RAM -> Drive. No "Disk Full" errors.
 *   **Memory Safe**: Processes one file at a time.
 *   **Junk Filter**: Automatically skips `logs`, `cache`, and `crash-reports` folders to save bandwidth.
+
+### Troubleshooting "Cannot GET /"
+If you see "Cannot GET /" when opening your Render URL:
+1. Ensure your GitHub repo has a `public` folder containing `index.html`.
+2. Ensure you didn't nest your files (e.g., `repo/my-app/package.json` instead of `repo/package.json`).
